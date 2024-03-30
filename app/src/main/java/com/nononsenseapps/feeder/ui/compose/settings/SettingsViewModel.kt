@@ -143,6 +143,11 @@ class SettingsViewModel(di: DI) : DIAwareViewModel(di) {
         repository.setOpenAdjacent(value)
     }
 
+    fun setOpenAISettings(openAIKey: String, openAIModelId: String) {
+        repository.setOpenAIKey(openAIKey)
+        repository.setOpenAIModelId(openAIModelId)
+    }
+
     fun setShowReadingTime(value: Boolean) {
         repository.setShowReadingTime(value)
     }
@@ -204,6 +209,8 @@ class SettingsViewModel(di: DI) : DIAwareViewModel(di) {
                 repository.isOpenAdjacent,
                 repository.showReadingTime,
                 repository.showTitleUnreadCount,
+                repository.openAIKey,
+                repository.openAIModelId
             ) { params: Array<Any> ->
                 @Suppress("UNCHECKED_CAST")
                 SettingsViewState(
@@ -234,6 +241,8 @@ class SettingsViewModel(di: DI) : DIAwareViewModel(di) {
                     isOpenAdjacent = params[24] as Boolean,
                     showReadingTime = params[25] as Boolean,
                     showTitleUnreadCount = params[26] as Boolean,
+                    openAIKey = params[27] as String,
+                    openAIModelId = params[28] as String,
                 )
             }.collect {
                 _viewState.value = it
@@ -274,6 +283,8 @@ data class SettingsViewState(
     val maxLines: Int = 2,
     val showOnlyTitle: Boolean = false,
     val isOpenAdjacent: Boolean = true,
+    val openAIKey: String = "",
+    val openAIModelId: String = "",
     val showReadingTime: Boolean = false,
     val showTitleUnreadCount: Boolean = false,
 )

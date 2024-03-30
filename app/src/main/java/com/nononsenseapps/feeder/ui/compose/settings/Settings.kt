@@ -42,6 +42,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -65,9 +66,13 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices.NEXUS_5
 import androidx.compose.ui.tooling.preview.Devices.PIXEL_C
@@ -206,6 +211,9 @@ fun SettingsScreen(
             onStartActivity = { intent ->
                 activityLauncher.startActivity(false, intent)
             },
+            openAIKey = viewState.openAIKey,
+            openAIModelId = viewState.openAIModelId,
+            onOpenAIChanged = settingsViewModel::setOpenAISettings,
             modifier = Modifier.padding(padding),
         )
     }
@@ -273,6 +281,9 @@ private fun SettingsScreenPreview() {
             showTitleUnreadCount = false,
             onShowTitleUnreadCountChange = {},
             onStartActivity = {},
+            openAIKey = "",
+            openAIModelId = "",
+            onOpenAIChanged = { _,_ -> },
             modifier = Modifier,
         )
     }
@@ -336,6 +347,9 @@ fun SettingsList(
     showTitleUnreadCount: Boolean,
     onShowTitleUnreadCountChange: (Boolean) -> Unit,
     onStartActivity: (intent: Intent) -> Unit,
+    openAIKey: String,
+    openAIModelId: String,
+    onOpenAIChanged: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -689,8 +703,82 @@ fun SettingsList(
             onCheckedChange = onUseDetectLanguageChange,
         )
 
+        HorizontalDivider(modifier = Modifier.width(dimens.maxContentWidth))
+
+        GroupTitle { innerModifier ->
+            Text(
+                stringResource(id = R.string.openai_settings),
+                modifier = innerModifier
+            )
+        }
+
+        OpenAISettings(
+           openAIKey = openAIKey,
+           openAIModelId = openAIModelId,
+           onOpenAIChanged = onOpenAIChanged
+        )
+
         Spacer(modifier = Modifier.navigationBarsPadding())
     }
+}
+
+@Composable
+fun OpenAISettings(
+    openAIKey: String,
+    openAIModelId: String,
+    onOpenAIChanged: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+
+    val dimens = LocalDimens.current
+    Row(
+        modifier =
+        modifier
+            .padding(start = 64.dp)
+            .width(dimens.maxContentWidth)
+            .semantics {
+                role = Role.Button
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TitleAndSubtitle(
+            title = {
+                Text("API Key")
+            },
+            subtitle = null
+        )
+    }
+
+    TextField(
+        modifier = Modifier.padding(start = 64.dp),
+        value = openAIKey,
+        onValueChange = { onOpenAIChanged(it, openAIModelId) },
+        visualTransformation = VisualTransformationApiKey()
+    )
+
+    Row(
+        modifier =
+        modifier
+            .padding(start = 64.dp)
+            .width(dimens.maxContentWidth)
+            .semantics {
+                role = Role.Button
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TitleAndSubtitle(
+            title = {
+                Text("Model")
+            },
+            subtitle = null
+        )
+    }
+
+    TextField(
+        modifier = Modifier.padding(start = 64.dp),
+        value = openAIModelId,
+        onValueChange = { onOpenAIChanged(openAIKey, it) },
+    )
 }
 
 @Composable

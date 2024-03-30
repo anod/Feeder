@@ -481,6 +481,23 @@ class SettingsStore(override val di: DI) : DIAware {
         }
     }
 
+
+    private val _openAiKey = MutableStateFlow(sp.getString(PREF_OPENAI_KEY, "")!!)
+    val openAiKey = _openAiKey.asStateFlow()
+
+    fun setOpenAiKy(value: String) {
+        _openAiKey.value = value
+        sp.edit().putString(PREF_OPENAI_KEY, value).apply()
+    }
+
+    private val _openAiModelId = MutableStateFlow(sp.getString(PREF_OPENAI_MODEL_ID, "gpt-3.5-turbo")!!)
+    val openAiModelId = _openAiModelId.asStateFlow()
+
+    fun setOpenAiModelId(value: String) {
+        _openAiModelId.value = value
+        sp.edit().putString(PREF_OPENAI_MODEL_ID, value).apply()
+    }
+
     private val _showTitleUnreadCount = MutableStateFlow(sp.getBoolean(PREF_SHOW_TITLE_UNREAD_COUNT, false))
     val showTitleUnreadCount = _showTitleUnreadCount.asStateFlow()
 
@@ -585,6 +602,12 @@ const val PREF_LIST_SHOW_READING_TIME = "pref_show_reading_time"
  * Read Aloud Settings
  */
 const val PREF_READALOUD_USE_DETECT_LANGUAGE = "pref_readaloud_detect_lang"
+
+/**
+ * OpenAI integration
+ */
+const val PREF_OPENAI_KEY = "pref_openai_key"
+const val PREF_OPENAI_MODEL_ID = "pref_openai_model_id"
 
 /**
  * Appearance settings

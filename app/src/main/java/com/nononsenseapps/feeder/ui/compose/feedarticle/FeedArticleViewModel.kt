@@ -40,6 +40,7 @@ import com.nononsenseapps.feeder.model.UnsupportedContentType
 import com.nononsenseapps.feeder.model.html.HtmlLinearizer
 import com.nononsenseapps.feeder.model.html.LinearArticle
 import com.nononsenseapps.feeder.model.workmanager.requestFeedSync
+import com.nononsenseapps.feeder.openai.OpenAIApi
 import com.nononsenseapps.feeder.ui.compose.feed.FeedListItem
 import com.nononsenseapps.feeder.ui.compose.feed.FeedOrTag
 import com.nononsenseapps.feeder.ui.compose.text.htmlToAnnotatedString
@@ -56,7 +57,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.jsoup.Jsoup
 import org.kodein.di.DI
 import org.kodein.di.instance
 import java.io.FileNotFoundException
@@ -71,6 +74,7 @@ class FeedArticleViewModel(
     private val ttsStateHolder: TTSStateHolder by instance()
     private val fullTextParser: FullTextParser by instance()
     private val filePathProvider: FilePathProvider by instance()
+    private val openAIApi: OpenAIApi by instance()
 
     // Use this for actions which should complete even if app goes off screen
     private val applicationCoroutineScope: ApplicationCoroutineScope by instance()
@@ -277,6 +281,7 @@ class FeedArticleViewModel(
         }
     }
 
+    private val openAiSummary: MutableStateFlow<OpenAIApi.SummaryResult> = MutableStateFlow(OpenAIApi.SummaryResult.empty)
     val viewState: StateFlow<FeedArticleScreenViewState> =
         combine(
             repository.showFab,
@@ -309,6 +314,8 @@ class FeedArticleViewModel(
             repository.showReadingTime,
             repository.syncWorkerRunning,
             repository.showTitleUnreadCount,
+            repository.openAIKey,
+            openAiSummary,
         ) { params: Array<Any> ->
             val article = params[15] as Article
 
@@ -359,6 +366,8 @@ class FeedArticleViewModel(
                 filter = params[24] as FeedListFilter,
                 showOnlyTitle = params[25] as Boolean,
                 showReadingTime = params[26] as Boolean,
+                showSummarize = (params[29] as String).isNotBlank() && !article.link.isNullOrEmpty(),
+                openAiSummary = (params[30] as OpenAIApi.SummaryResult).let { if (it.id.isEmpty()) null else it },
                 wordCount =
                     when (textToDisplay) {
                         TextToDisplay.DEFAULT -> article.wordCount
@@ -563,6 +572,41 @@ class FeedArticleViewModel(
         }
     }
 
+    fun summarize() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val content = loadArticleContent()
+                openAiSummary.value = openAIApi.summarize(content)
+            } catch (e: Exception) {
+                // TODO
+            }
+        }
+    }
+
+    private suspend fun loadArticleContent(): String {
+        val viewState = viewState.value
+        val blobFile = blobFullFile(viewState.articleId, filePathProvider.fullArticleDir)
+        val contentStream = if (blobFile.isFile) {
+            blobFullInputStream(viewState.articleId, filePathProvider.fullArticleDir)
+        } else {
+            fullTextParser.parseFullArticleIfMissing(object : FeedItemForFetching {
+                override val id = viewState.articleId
+                override val link = viewState.articleLink
+            }).let {
+                val error = it.leftOrNull()
+                if (error == null) {
+                    blobFullInputStream(viewState.articleId, filePathProvider.fullArticleDir)
+                } else {
+                    throw IllegalStateException("Cannot load article: ${error.description}", error.throwable)
+                }
+            }
+        }
+
+        val content = Jsoup.parse(contentStream, null, viewState.articleFeedUrl ?: "")?.body()?.text()
+            ?: throw IllegalStateException("Cannot parse content")
+        return content
+    }
+
     override fun onCleared() {
         super.onCleared()
         ttsStateHolder.shutdown()
@@ -630,11 +674,13 @@ interface ArticleScreenViewState {
     val enclosure: Enclosure
     val articleTitle: String
     val showToolbarMenu: Boolean
+    val showSummarize: Boolean
     val feedDisplayTitle: String
     val isBookmarked: Boolean
     val keyHolder: ArticleItemKeyHolder
     val wordCount: Int
     val image: ThumbnailImage?
+    val openAiSummary: OpenAIApi.SummaryResult?
     val articleContent: LinearArticle
 }
 
@@ -713,6 +759,7 @@ data class FeedArticleScreenViewState(
     override val isTTSPlaying: Boolean = false,
     override val ttsLanguages: List<Locale> = emptyList(),
     override val showToolbarMenu: Boolean = false,
+    override val showSummarize: Boolean = false,
     override val showDeleteDialog: Boolean = false,
     override val showEditDialog: Boolean = false,
     // Defaults to true so empty screen doesn't appear before load
@@ -741,6 +788,7 @@ data class FeedArticleScreenViewState(
     val isArticleOpen: Boolean = false,
     override val wordCount: Int = 0,
     override val image: ThumbnailImage? = null,
+    override val openAiSummary: OpenAIApi.SummaryResult? = null,
     override val articleContent: LinearArticle = LinearArticle(elements = emptyList()),
     override val showTitleUnreadCount: Boolean = false,
 ) : FeedScreenViewState, ArticleScreenViewState

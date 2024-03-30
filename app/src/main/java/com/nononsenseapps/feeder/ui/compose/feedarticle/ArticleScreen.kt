@@ -20,10 +20,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -155,6 +158,9 @@ fun ArticleScreen(
         },
         articleListState = articleListState,
         onNavigateUp = onNavigateUp,
+        onSummarize = {
+            viewModel.summarize()
+        }
     )
 }
 
@@ -181,6 +187,7 @@ fun ArticleScreen(
     articleListState: LazyListState,
     modifier: Modifier = Modifier,
     onNavigateUp: () -> Unit,
+    onSummarize: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -278,6 +285,24 @@ fun ArticleScreen(
                                         Text(stringResource(id = R.string.share))
                                     },
                                 )
+
+                                if (viewState.showSummarize) {
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            onShowToolbarMenu(false)
+                                            onSummarize()
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.AutoFixHigh,
+                                                contentDescription = null,
+                                            )
+                                        },
+                                        text = {
+                                            Text(stringResource(id = R.string.summarize))
+                                        },
+                                    )
+                                }
 
                                 DropdownMenuItem(
                                     onClick = {
@@ -453,6 +478,16 @@ fun ArticleContent(
         modifier = modifier,
         articleListState = articleListState,
     ) {
+        if (viewState.openAiSummary != null) {
+            item {
+                OutlinedCard {
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = viewState.openAiSummary!!.content
+                    )
+                }
+            }
+        }
         // Can take a composition or two before viewstate is set to its actual values
         if (viewState.articleId > ID_UNSET) {
             when (viewState.textToDisplay) {
